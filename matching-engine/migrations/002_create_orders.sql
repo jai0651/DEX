@@ -6,11 +6,11 @@ CREATE TABLE orders (
     side VARCHAR(4) NOT NULL CHECK (side IN ('buy', 'sell')),
     price BIGINT NOT NULL,
     size BIGINT NOT NULL,
-    filled BIGINT DEFAULT 0,
+    filled BIGINT NOT NULL DEFAULT 0,
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'partiallyfilled', 'filled', 'cancelled')),
     on_chain_signature VARCHAR(88),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_orders_user_wallet ON orders(user_wallet);

@@ -10,8 +10,8 @@ CREATE TABLE markets (
     tick_size BIGINT NOT NULL,
     maker_fee_bps SMALLINT NOT NULL DEFAULT 0,
     taker_fee_bps SMALLINT NOT NULL DEFAULT 0,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(base_mint, quote_mint)
 );
 

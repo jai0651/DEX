@@ -1,8 +1,12 @@
 version: '3.8'
 
+# Development setup: Only PostgreSQL and Redis in Docker
+# Run matching-engine and frontend locally for testing
+
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
+    container_name: dcex-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -11,7 +15,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./matching-engine/migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -20,6 +23,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: dcex-redis
     ports:
       - "6379:6379"
     volumes:
@@ -29,38 +33,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  matching-engine:
-    build:
-      context: ./matching-engine
-      dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
-    environment:
-      SERVER_ADDR: "0.0.0.0:3001"
-      DATABASE_URL: postgres://postgres:password@postgres:5432/dcex
-      REDIS_URL: redis://redis:6379
-      SOLANA_RPC_URL: https://api.devnet.solana.com
-      RUST_LOG: matching_engine=debug,tower_http=debug
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  frontend:
-    build:
-      context: ./dcex-frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
-      NEXT_PUBLIC_WS_URL: ws://localhost:3001/ws
-      NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
-      MATCHING_ENGINE_URL: http://matching-engine:3001
-    depends_on:
-      - matching-engine
 
 volumes:
   postgres_data:

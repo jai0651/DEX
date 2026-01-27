@@ -106,7 +106,7 @@ pub struct CancelOrderRequest {
     pub signature: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum WsMessage {
     #[serde(rename = "subscribe")]

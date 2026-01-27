@@ -10,7 +10,7 @@ CREATE TABLE trades (
     maker_fee BIGINT NOT NULL DEFAULT 0,
     taker_fee BIGINT NOT NULL DEFAULT 0,
     settlement_signature VARCHAR(88),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_trades_market_time ON trades(market_id, created_at);

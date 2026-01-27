@@ -18,7 +18,7 @@ impl Config {
             redis_url: std::env::var("REDIS_URL")
                 .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string()),
             solana_rpc_url: std::env::var("SOLANA_RPC_URL")
-                .unwrap_or_else(|_| "https://api.devnet.solana.com".to_string()),
+                .unwrap_or_else(|_| "http://localhost:8899".to_string()),
             program_id: std::env::var("PROGRAM_ID")
                 .unwrap_or_else(|_| "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS".to_string()),
         })
