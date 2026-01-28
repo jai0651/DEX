@@ -6,7 +6,7 @@ import { useTradingStore } from '@/lib/stores/trading'
 import { api } from '@/lib/api/client'
 import { Button } from '@/components/ui/button'
 import { formatPrice, formatSize, formatTimestamp, cn } from '@/lib/utils'
-import { X } from 'lucide-react'
+import { X, FileText, Wallet } from 'lucide-react'
 
 export const OpenOrders: FC = () => {
   const { publicKey } = useWallet()
@@ -32,45 +32,64 @@ export const OpenOrders: FC = () => {
 
   if (!publicKey) {
     return (
-      <div className="bg-card rounded-lg p-4">
-        <h3 className="font-semibold mb-4">Open Orders</h3>
-        <div className="text-center text-muted-foreground text-sm py-8">
-          Connect wallet to view orders
+      <div className="bg-card rounded-2xl border border-white/5">
+        <div className="px-4 py-3 border-b border-white/5">
+          <h3 className="font-semibold">Open Orders</h3>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
+            <Wallet className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <p className="text-muted-foreground text-sm">Connect wallet to view orders</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-card rounded-lg">
-      <div className="p-3 border-b border-border">
-        <h3 className="font-semibold">Open Orders ({activeOrders.length})</h3>
+    <div className="bg-card rounded-2xl border border-white/5">
+      <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold">Open Orders</h3>
+          {activeOrders.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-pink/20 text-pink text-xs font-medium">
+              {activeOrders.length}
+            </span>
+          )}
+        </div>
       </div>
 
       {activeOrders.length === 0 ? (
-        <div className="text-center text-muted-foreground text-sm py-8">
-          No open orders
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
+            <FileText className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <p className="text-muted-foreground text-sm">No open orders</p>
+          <p className="text-muted-foreground/60 text-xs mt-1">Your active orders will appear here</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-muted-foreground border-b border-border">
-                <th className="text-left px-3 py-2 font-medium">Side</th>
-                <th className="text-right px-3 py-2 font-medium">Price</th>
-                <th className="text-right px-3 py-2 font-medium">Size</th>
-                <th className="text-right px-3 py-2 font-medium">Filled</th>
-                <th className="text-right px-3 py-2 font-medium">Time</th>
-                <th className="text-right px-3 py-2 font-medium"></th>
+              <tr className="text-muted-foreground border-b border-white/5">
+                <th className="text-left px-4 py-3 font-medium">Side</th>
+                <th className="text-right px-4 py-3 font-medium">Price</th>
+                <th className="text-right px-4 py-3 font-medium">Size</th>
+                <th className="text-right px-4 py-3 font-medium">Filled</th>
+                <th className="text-right px-4 py-3 font-medium">Time</th>
+                <th className="text-right px-4 py-3 font-medium w-10"></th>
               </tr>
             </thead>
             <tbody>
               {activeOrders.map((order) => (
-                <tr key={order.order_id} className="hover:bg-secondary/50">
-                  <td className="px-3 py-2">
+                <tr 
+                  key={order.order_id} 
+                  className="hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+                >
+                  <td className="px-4 py-3">
                     <span
                       className={cn(
-                        'px-2 py-0.5 rounded text-xs font-medium',
+                        'px-2.5 py-1 rounded-lg text-xs font-semibold',
                         order.side === 'buy'
                           ? 'bg-buy/20 text-buy'
                           : 'bg-sell/20 text-sell'
@@ -79,23 +98,44 @@ export const OpenOrders: FC = () => {
                       {order.side.toUpperCase()}
                     </span>
                   </td>
-                  <td className="text-right px-3 py-2">{formatPrice(order.price)}</td>
-                  <td className="text-right px-3 py-2">{formatSize(order.size)}</td>
-                  <td className="text-right px-3 py-2">
-                    {((order.filled / order.size) * 100).toFixed(1)}%
+                  <td className="text-right px-4 py-3 font-mono">
+                    {formatPrice(order.price)}
                   </td>
-                  <td className="text-right px-3 py-2 text-muted-foreground">
+                  <td className="text-right px-4 py-3 font-mono text-muted-foreground">
+                    {formatSize(order.size)}
+                  </td>
+                  <td className="text-right px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className={cn(
+                            'h-full rounded-full transition-all',
+                            order.side === 'buy' ? 'bg-buy' : 'bg-sell'
+                          )}
+                          style={{ width: `${(order.filled / order.size) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground w-10">
+                        {((order.filled / order.size) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  </td>
+                  <td className="text-right px-4 py-3 text-muted-foreground text-xs">
                     {formatTimestamp(order.created_at)}
                   </td>
-                  <td className="text-right px-3 py-2">
+                  <td className="text-right px-4 py-3">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-7 w-7 hover:bg-sell/20 hover:text-sell"
                       onClick={() => handleCancel(order.order_id)}
                       disabled={cancellingId === order.order_id}
                     >
-                      <X className="h-4 w-4" />
+                      {cancellingId === order.order_id ? (
+                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
                     </Button>
                   </td>
                 </tr>

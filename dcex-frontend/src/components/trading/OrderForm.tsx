@@ -1,12 +1,12 @@
 'use client'
 
-import { FC, useState, useCallback } from 'react'
+import { FC, useState, useCallback, useEffect } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { useTradingStore } from '@/lib/stores/trading'
 import { api } from '@/lib/api/client'
 import { cn, formatNumber } from '@/lib/utils'
+import { ArrowDownUp, ChevronDown, AlertCircle } from 'lucide-react'
 import type { OrderSide } from '@/types/trading'
 
 interface OrderFormProps {
@@ -22,6 +22,12 @@ export const OrderForm: FC<OrderFormProps> = ({ initialPrice }) => {
   const [size, setSize] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (initialPrice !== undefined) {
+      setPrice(initialPrice.toString())
+    }
+  }, [initialPrice])
 
   const total = price && size ? parseFloat(price) * parseFloat(size) : 0
 
@@ -71,61 +77,110 @@ export const OrderForm: FC<OrderFormProps> = ({ initialPrice }) => {
   }, [connected, publicKey, selectedMarket, price, size, side])
 
   return (
-    <div className="bg-card rounded-lg p-4">
-      <div className="flex gap-2 mb-4">
-        <Button
-          variant={side === 'buy' ? 'buy' : 'ghost'}
-          className={cn('flex-1', side !== 'buy' && 'text-muted-foreground')}
-          onClick={() => setSide('buy')}
-        >
-          Buy
-        </Button>
-        <Button
-          variant={side === 'sell' ? 'sell' : 'ghost'}
-          className={cn('flex-1', side !== 'sell' && 'text-muted-foreground')}
-          onClick={() => setSide('sell')}
-        >
-          Sell
-        </Button>
+    <div className="bg-card rounded-2xl border border-white/5 p-5">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex bg-muted rounded-xl p-1">
+          <button
+            className={cn(
+              'px-4 py-2 rounded-lg text-sm font-semibold transition-all',
+              side === 'buy'
+                ? 'bg-buy text-white shadow-lg'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => setSide('buy')}
+          >
+            Buy
+          </button>
+          <button
+            className={cn(
+              'px-4 py-2 rounded-lg text-sm font-semibold transition-all',
+              side === 'sell'
+                ? 'bg-sell text-white shadow-lg'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => setSide('sell')}
+          >
+            Sell
+          </button>
+        </div>
+        <span className="text-xs text-muted-foreground px-2 py-1 rounded-lg bg-muted">
+          Limit
+        </span>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="text-sm text-muted-foreground mb-1 block">Price (USDC)</label>
-          <Input
-            type="number"
-            placeholder="0.00"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            step="0.01"
-            min="0"
-          />
+      <div className="space-y-3">
+        <div className="bg-secondary rounded-xl p-4 transition-all hover:bg-muted focus-within:ring-1 focus-within:ring-pink/30">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-muted-foreground">Price</span>
+            <span className="text-xs text-muted-foreground">USDC</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              placeholder="0.00"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="flex-1 bg-transparent text-2xl font-semibold outline-none placeholder:text-muted-foreground/50"
+              step="0.01"
+              min="0"
+            />
+            <button className="flex items-center gap-1 px-3 py-2 rounded-xl bg-card hover:bg-card-hover transition-colors">
+              <span className="text-sm font-medium">USDC</span>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
-        <div>
-          <label className="text-sm text-muted-foreground mb-1 block">Size (SOL)</label>
-          <Input
-            type="number"
-            placeholder="0.0000"
-            value={size}
-            onChange={(e) => setSize(e.target.value)}
-            step="0.0001"
-            min="0"
-          />
+        <div className="flex justify-center -my-1 relative z-10">
+          <button className="p-2 rounded-xl bg-muted border-4 border-card hover:bg-secondary transition-colors">
+            <ArrowDownUp className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
 
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Total</span>
-          <span>{formatNumber(total, 2)} USDC</span>
+        <div className="bg-secondary rounded-xl p-4 transition-all hover:bg-muted focus-within:ring-1 focus-within:ring-pink/30">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-muted-foreground">Amount</span>
+            <span className="text-xs text-muted-foreground">SOL</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              placeholder="0.0000"
+              value={size}
+              onChange={(e) => setSize(e.target.value)}
+              className="flex-1 bg-transparent text-2xl font-semibold outline-none placeholder:text-muted-foreground/50"
+              step="0.0001"
+              min="0"
+            />
+            <button className="flex items-center gap-2 px-3 py-2 rounded-xl bg-card hover:bg-card-hover transition-colors">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195]" />
+              <span className="text-sm font-medium">SOL</span>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
-        {error && (
-          <div className="text-sell text-sm">{error}</div>
+        {(total > 0 || error) && (
+          <div className="px-1 space-y-2">
+            {total > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-medium">{formatNumber(total, 2)} USDC</span>
+              </div>
+            )}
+            {error && (
+              <div className="flex items-center gap-2 text-sell text-sm">
+                <AlertCircle className="w-4 h-4" />
+                <span>{error}</span>
+              </div>
+            )}
+          </div>
         )}
 
         <Button
           variant={side === 'buy' ? 'buy' : 'sell'}
-          className="w-full"
+          size="xl"
+          className="w-full mt-2"
           onClick={handleSubmit}
           disabled={isSubmitting || !connected}
         >

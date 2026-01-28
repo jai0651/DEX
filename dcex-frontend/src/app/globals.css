@@ -4,21 +4,23 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 15%;
-    --card-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 32% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 32% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 32% 17%;
-    --accent-foreground: 210 40% 98%;
-    --border: 217 32% 25%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
+    --background: 0 0% 5%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
+    --card-hover: 0 0% 10%;
+    --primary: 328 100% 54%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 328 100% 54%;
+    --accent-foreground: 0 0% 100%;
+    --border: 0 0% 15%;
+    --input: 0 0% 12%;
+    --ring: 328 100% 54%;
+    --radius: 1rem;
   }
 }
 
@@ -27,24 +29,82 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
+@layer utilities {
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl;
+  }
+  
+  .glass-border {
+    @apply border border-white/5;
+  }
+  
+  .glow {
+    box-shadow: 0 0 20px rgba(252, 114, 255, 0.15);
+  }
+  
+  .glow-strong {
+    box-shadow: 0 0 30px rgba(252, 114, 255, 0.25);
+  }
+}
+
 .scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: hsl(var(--secondary));
+  background: transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 3px;
+  background: hsl(var(--muted));
+  border-radius: 2px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(252, 114, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(252, 114, 255, 0.4);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-animated {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
 }
