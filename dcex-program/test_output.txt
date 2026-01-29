@@ -1,0 +1,37 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v1.6.1 /Users/jai/repos/projects/web3/dcex/dcex-program
+
+stdout | tests/orders.test.ts > on-chain orders
+orderBase: 1769706188337
+Requesting airdrop...
+
+stdout | tests/orders.test.ts > on-chain orders
+Confirming airdrop...
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/orders.test.ts > on-chain orders
+TypeError: Cannot read properties of undefined (reading 'size')
+ ❯ new AccountClient node_modules/@coral-xyz/anchor/src/program/namespace/account.ts:121:39
+ ❯ node_modules/@coral-xyz/anchor/src/program/namespace/account.ts:28:30
+ ❯ AccountFactory.build node_modules/@coral-xyz/anchor/src/program/namespace/account.ts:27:33
+ ❯ NamespaceFactory.build node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:56:24
+ ❯ new Program node_modules/@coral-xyz/anchor/src/program/index.ts:301:24
+ ❯ tests/orders.test.ts:69:15
+     67|       { commitment: 'confirmed' }
+     68|     )
+     69|     program = new Program(IDL as anchor.Idl, PROGRAM_ID, provider)
+       |               ^
+     70|     console.log('Available accounts:', Object.keys(program.account))
+     71| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests   (5)
+   Start at  22:33:07
+   Duration  878ms (transform 22ms, setup 0ms, collect 166ms, tests 537ms, environment 0ms, prepare 41ms)
+
+error: "vitest" exited with code 1

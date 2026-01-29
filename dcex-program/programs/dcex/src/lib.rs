@@ -7,7 +7,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("3Y2dNgp8WVLTNptUSUZY48cHCkB5wBRKJmDrC9WJspFo");
 
 #[program]
 pub mod dcex {

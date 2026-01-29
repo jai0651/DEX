@@ -1,0 +1,21 @@
+{
+  "name": "dcex-program-tests",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "bun test",
+    "test:full": "bash scripts/run-on-chain-tests.sh",
+    "test:anchor": "anchor test"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/bn.js": "^5.1.6",
+    "bn.js": "^5.2.1",
+    "typescript": "^5.7.3"
+  }
+}

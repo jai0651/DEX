@@ -57,6 +57,15 @@ pub fn handler(ctx: Context<Deposit>, params: DepositParams) -> Result<()> {
         user_vault.user = ctx.accounts.user.key();
         user_vault.market = ctx.accounts.market.key();
         user_vault.bump = ctx.bumps.user_vault;
+    } else {
+        require!(
+            user_vault.user == ctx.accounts.user.key(),
+            DcexError::Unauthorized
+        );
+        require!(
+            user_vault.market == ctx.accounts.market.key(),
+            DcexError::InvalidMarketConfiguration
+        );
     }
 
     let cpi_accounts = Transfer {

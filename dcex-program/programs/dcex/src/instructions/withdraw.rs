@@ -22,14 +22,14 @@ pub struct Withdraw<'info> {
 
     #[account(
         mut,
-        constraint = user_token_account.owner == user.key()
+        constraint = user_token_account.owner == user.key(),
+        constraint = user_token_account.mint == market.base_mint || user_token_account.mint == market.quote_mint
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        constraint = (market_vault.key() == market.base_vault) ||
-                     (market_vault.key() == market.quote_vault)
+        constraint = market_vault.key() == market.base_vault || market_vault.key() == market.quote_vault
     )]
     pub market_vault: Account<'info, TokenAccount>,
 
@@ -44,6 +44,34 @@ pub struct WithdrawParams {
 
 pub fn handler(ctx: Context<Withdraw>, params: WithdrawParams) -> Result<()> {
     require!(params.amount > 0, DcexError::InvalidOrderSize);
+
+    if params.is_base {
+        require!(
+            ctx.accounts.user_token_account.mint == ctx.accounts.market.base_mint,
+            DcexError::InvalidMarketConfiguration
+        );
+        require!(
+            ctx.accounts.market_vault.key() == ctx.accounts.market.base_vault,
+            DcexError::InvalidMarketConfiguration
+        );
+        require!(
+            ctx.accounts.market_vault.mint == ctx.accounts.market.base_mint,
+            DcexError::InvalidMarketConfiguration
+        );
+    } else {
+        require!(
+            ctx.accounts.user_token_account.mint == ctx.accounts.market.quote_mint,
+            DcexError::InvalidMarketConfiguration
+        );
+        require!(
+            ctx.accounts.market_vault.key() == ctx.accounts.market.quote_vault,
+            DcexError::InvalidMarketConfiguration
+        );
+        require!(
+            ctx.accounts.market_vault.mint == ctx.accounts.market.quote_mint,
+            DcexError::InvalidMarketConfiguration
+        );
+    }
 
     let user_vault = &mut ctx.accounts.user_vault;
 
@@ -71,7 +99,6 @@ pub fn handler(ctx: Context<Withdraw>, params: WithdrawParams) -> Result<()> {
             .ok_or(DcexError::ArithmeticOverflow)?;
     }
 
-    let market_key = ctx.accounts.market.key();
     let seeds = &[
         MARKET_SEED,
         ctx.accounts.market.base_mint.as_ref(),

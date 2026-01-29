@@ -97,6 +97,17 @@ pub fn handler(ctx: Context<SettleTrade>, params: SettleTradeParams) -> Result<(
         .ok_or(DcexError::ArithmeticOverflow)?;
     let taker_fee = market.calculate_taker_fee(quote_amount)
         .ok_or(DcexError::ArithmeticOverflow)?;
+    let total_fees = maker_fee
+        .checked_add(taker_fee)
+        .ok_or(DcexError::ArithmeticOverflow)?;
+
+    let seeds = &[
+        MARKET_SEED,
+        ctx.accounts.market.base_mint.as_ref(),
+        ctx.accounts.market.quote_mint.as_ref(),
+        &[ctx.accounts.market.bump],
+    ];
+    let signer_seeds = &[&seeds[..]];
 
     match maker_order.side {
         OrderSide::Sell => {
@@ -104,41 +115,65 @@ pub fn handler(ctx: Context<SettleTrade>, params: SettleTradeParams) -> Result<(
             maker_vault.base_balance = maker_vault.base_balance
                 .checked_sub(base_amount)
                 .ok_or(DcexError::ArithmeticOverflow)?;
+            let maker_quote_received = quote_amount
+                .checked_sub(maker_fee)
+                .ok_or(DcexError::ArithmeticOverflow)?;
             maker_vault.quote_balance = maker_vault.quote_balance
-                .checked_add(quote_amount.saturating_sub(maker_fee))
+                .checked_add(maker_quote_received)
                 .ok_or(DcexError::ArithmeticOverflow)?;
 
             taker_vault.unlock_quote(quote_amount)?;
+            let taker_quote_paid = quote_amount
+                .checked_add(taker_fee)
+                .ok_or(DcexError::ArithmeticOverflow)?;
             taker_vault.quote_balance = taker_vault.quote_balance
-                .checked_sub(quote_amount)
+                .checked_sub(taker_quote_paid)
                 .ok_or(DcexError::ArithmeticOverflow)?;
             taker_vault.base_balance = taker_vault.base_balance
                 .checked_add(base_amount)
                 .ok_or(DcexError::ArithmeticOverflow)?;
-            
-            taker_vault.quote_balance = taker_vault.quote_balance
-                .saturating_sub(taker_fee);
         }
         OrderSide::Buy => {
             maker_vault.unlock_quote(quote_amount)?;
+            let maker_quote_paid = quote_amount
+                .checked_add(maker_fee)
+                .ok_or(DcexError::ArithmeticOverflow)?;
             maker_vault.quote_balance = maker_vault.quote_balance
-                .checked_sub(quote_amount)
+                .checked_sub(maker_quote_paid)
                 .ok_or(DcexError::ArithmeticOverflow)?;
             maker_vault.base_balance = maker_vault.base_balance
                 .checked_add(base_amount)
                 .ok_or(DcexError::ArithmeticOverflow)?;
-            
-            maker_vault.quote_balance = maker_vault.quote_balance
-                .saturating_sub(maker_fee);
 
             taker_vault.unlock_base(base_amount)?;
             taker_vault.base_balance = taker_vault.base_balance
                 .checked_sub(base_amount)
                 .ok_or(DcexError::ArithmeticOverflow)?;
+            let taker_quote_received = quote_amount
+                .checked_sub(taker_fee)
+                .ok_or(DcexError::ArithmeticOverflow)?;
             taker_vault.quote_balance = taker_vault.quote_balance
-                .checked_add(quote_amount.saturating_sub(taker_fee))
+                .checked_add(taker_quote_received)
                 .ok_or(DcexError::ArithmeticOverflow)?;
         }
+    }
+
+    if total_fees > 0 {
+        require!(
+            ctx.accounts.fee_recipient.mint == market.quote_mint,
+            DcexError::InvalidMarketConfiguration
+        );
+        let fee_cpi_accounts = Transfer {
+            from: ctx.accounts.quote_vault.to_account_info(),
+            to: ctx.accounts.fee_recipient.to_account_info(),
+            authority: ctx.accounts.market.to_account_info(),
+        };
+        let fee_cpi_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            fee_cpi_accounts,
+            signer_seeds,
+        );
+        token::transfer(fee_cpi_ctx, total_fees)?;
     }
 
     maker_order.fill(params.fill_size)?;

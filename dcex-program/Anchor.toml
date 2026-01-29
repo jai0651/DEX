@@ -3,10 +3,10 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-dcex = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+dcex = "3Y2dNgp8WVLTNptUSUZY48cHCkB5wBRKJmDrC9WJspFo"
 
 [programs.devnet]
-dcex = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+dcex = "3Y2dNgp8WVLTNptUSUZY48cHCkB5wBRKJmDrC9WJspFo"
 
 [registry]
 url = "https://api.apr.dev"

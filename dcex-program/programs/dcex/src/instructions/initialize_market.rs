@@ -6,6 +6,7 @@ use crate::errors::DcexError;
 use crate::state::Market;
 
 #[derive(Accounts)]
+#[instruction(params: InitializeMarketParams)]
 pub struct InitializeMarket<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -17,32 +18,29 @@ pub struct InitializeMarket<'info> {
         seeds = [MARKET_SEED, base_mint.key().as_ref(), quote_mint.key().as_ref()],
         bump
     )]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
 
-    pub base_mint: Account<'info, Mint>,
-    pub quote_mint: Account<'info, Mint>,
+    pub base_mint: Box<Account<'info, Mint>>,
+    pub quote_mint: Box<Account<'info, Mint>>,
 
+    /// CHECK: initialized via CPI
     #[account(
-        init,
-        payer = authority,
-        token::mint = base_mint,
-        token::authority = market,
+        mut,
         seeds = [ESCROW_SEED, market.key().as_ref(), b"base"],
         bump
     )]
-    pub base_vault: Account<'info, TokenAccount>,
+    pub base_vault: AccountInfo<'info>,
 
+    /// CHECK: initialized via CPI
     #[account(
-        init,
-        payer = authority,
-        token::mint = quote_mint,
-        token::authority = market,
+        mut,
         seeds = [ESCROW_SEED, market.key().as_ref(), b"quote"],
         bump
     )]
-    pub quote_vault: Account<'info, TokenAccount>,
+    pub quote_vault: AccountInfo<'info>,
 
-    pub fee_recipient: SystemAccount<'info>,
+    /// CHECK: fee recipient
+    pub fee_recipient: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
@@ -75,8 +73,72 @@ pub fn handler(ctx: Context<InitializeMarket>, params: InitializeMarketParams) -
         DcexError::InvalidMarketConfiguration
     );
 
-    let market = &mut ctx.accounts.market;
+    let market_key = ctx.accounts.market.key();
+    let base_vault_bump = ctx.bumps.base_vault;
+    let quote_vault_bump = ctx.bumps.quote_vault;
+
+    // Create base vault token account
+    let base_seeds = &[ESCROW_SEED, market_key.as_ref(), b"base", &[base_vault_bump]];
+    let base_signer = &[&base_seeds[..]];
     
+    let rent = ctx.accounts.rent.to_account_info();
+    let rent_lamports = Rent::get()?.minimum_balance(TokenAccount::LEN);
+    
+    anchor_lang::system_program::create_account(
+        CpiContext::new_with_signer(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.authority.to_account_info(),
+                to: ctx.accounts.base_vault.to_account_info(),
+            },
+            base_signer,
+        ),
+        rent_lamports,
+        TokenAccount::LEN as u64,
+        &ctx.accounts.token_program.key(),
+    )?;
+    
+    anchor_spl::token::initialize_account3(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::InitializeAccount3 {
+                account: ctx.accounts.base_vault.to_account_info(),
+                mint: ctx.accounts.base_mint.to_account_info(),
+                authority: ctx.accounts.market.to_account_info(),
+            },
+        ),
+    )?;
+
+    // Create quote vault token account  
+    let quote_seeds = &[ESCROW_SEED, market_key.as_ref(), b"quote", &[quote_vault_bump]];
+    let quote_signer = &[&quote_seeds[..]];
+    
+    anchor_lang::system_program::create_account(
+        CpiContext::new_with_signer(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.authority.to_account_info(),
+                to: ctx.accounts.quote_vault.to_account_info(),
+            },
+            quote_signer,
+        ),
+        rent_lamports,
+        TokenAccount::LEN as u64,
+        &ctx.accounts.token_program.key(),
+    )?;
+    
+    anchor_spl::token::initialize_account3(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::InitializeAccount3 {
+                account: ctx.accounts.quote_vault.to_account_info(),
+                mint: ctx.accounts.quote_mint.to_account_info(),
+                authority: ctx.accounts.market.to_account_info(),
+            },
+        ),
+    )?;
+
+    let market = &mut ctx.accounts.market;
     market.authority = ctx.accounts.authority.key();
     market.base_mint = ctx.accounts.base_mint.key();
     market.quote_mint = ctx.accounts.quote_mint.key();
@@ -91,11 +153,6 @@ pub fn handler(ctx: Context<InitializeMarket>, params: InitializeMarketParams) -
     market.fee_recipient = ctx.accounts.fee_recipient.key();
     market.is_active = true;
     market.bump = ctx.bumps.market;
-
-    msg!("Market initialized: base={}, quote={}", 
-        market.base_mint, 
-        market.quote_mint
-    );
 
     Ok(())
 }
