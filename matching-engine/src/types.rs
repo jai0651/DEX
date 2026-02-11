@@ -23,7 +23,7 @@ pub enum OrderStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Order {
     pub id: i64,
-    pub order_id: i64,
+    pub order_id: String, // Changed to String
     pub user_wallet: String,
     pub market_id: Uuid,
     pub side: OrderSide,
@@ -46,8 +46,8 @@ impl Order {
 pub struct Trade {
     pub id: i64,
     pub market_id: Uuid,
-    pub maker_order_id: i64,
-    pub taker_order_id: i64,
+    pub maker_order_id: String, // Changed to String
+    pub taker_order_id: String, // Changed to String
     pub maker_wallet: String,
     pub taker_wallet: String,
     pub price: i64,
@@ -97,11 +97,52 @@ pub struct PlaceOrderRequest {
     pub size: i64,
     pub wallet: String,
     pub signature: String,
+    pub order_id: Option<String>, // Added optional order_id
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CancelOrderRequest {
-    pub order_id: i64,
+    pub order_id: String, // Changed to String
+    pub wallet: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Deposit {
+    pub id: i64,
+    pub user_wallet: String,
+    pub market_id: Uuid,
+    pub amount: i64,
+    pub is_base: bool,
+    pub signature: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Withdrawal {
+    pub id: i64,
+    pub user_wallet: String,
+    pub market_id: Uuid,
+    pub amount: i64,
+    pub is_base: bool,
+    pub signature: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DepositRequest {
+    pub market_id: Uuid,
+    pub amount: i64,
+    pub is_base: bool,
+    pub wallet: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WithdrawalRequest {
+    pub market_id: Uuid,
+    pub amount: i64,
+    pub is_base: bool,
     pub wallet: String,
     pub signature: String,
 }

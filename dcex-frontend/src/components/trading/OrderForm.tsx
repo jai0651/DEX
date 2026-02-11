@@ -1,22 +1,26 @@
 'use client'
 
 import { FC, useState, useCallback, useEffect } from 'react'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { useConnection, useWallet } from '@solana/wallet-adapter-react'
+import { PublicKey } from '@solana/web3.js'
+import { BN } from '@coral-xyz/anchor'
 import { Button } from '@/components/ui/button'
 import { useTradingStore } from '@/lib/stores/trading'
 import { api } from '@/lib/api/client'
 import { cn, formatNumber } from '@/lib/utils'
 import { ArrowDownUp, ChevronDown, AlertCircle } from 'lucide-react'
 import type { OrderSide } from '@/types/trading'
+import { createPlaceOrderTransaction } from '@/lib/solana/orders'
 
 interface OrderFormProps {
   initialPrice?: number
 }
 
 export const OrderForm: FC<OrderFormProps> = ({ initialPrice }) => {
-  const { publicKey, connected } = useWallet()
+  const { connection } = useConnection()
+  const { publicKey, sendTransaction, connected } = useWallet()
   const selectedMarket = useTradingStore((state) => state.selectedMarket)
-  
+
   const [side, setSide] = useState<OrderSide>('buy')
   const [price, setPrice] = useState(initialPrice?.toString() || '')
   const [size, setSize] = useState('')
@@ -54,27 +58,67 @@ export const OrderForm: FC<OrderFormProps> = ({ initialPrice }) => {
     setError(null)
 
     try {
-      const priceUnits = Math.floor(priceNum * 1e9)
+      const priceUnits = Math.floor(priceNum * 1e9) // Assuming 9 decimals for now, should verify
       const sizeUnits = Math.floor(sizeNum * 1e9)
 
+      // 1. Generate order_id (must match on-chain and off-chain)
+      // Use current timestamp in microseconds + random component to ensure uniqueness and fit in u128
+      const orderId = new BN(Date.now()).mul(new BN(1000)).add(new BN(Math.floor(Math.random() * 1000)))
+
+      console.log('Placing order...', {
+        market: selectedMarket.id,
+        orderId: orderId.toString(),
+        side,
+        price: priceUnits,
+        size: sizeUnits
+      })
+
+      // 2. Create on-chain transaction
+      const baseMint = new PublicKey(selectedMarket.base_mint)
+      const quoteMint = new PublicKey(selectedMarket.quote_mint)
+
+      const tx = await createPlaceOrderTransaction(
+        connection,
+        publicKey,
+        baseMint,
+        quoteMint,
+        orderId,
+        side,
+        new BN(priceUnits),
+        new BN(sizeUnits)
+      )
+
+      // 3. Sign and send to Solana
+      const signature = await sendTransaction(tx, connection)
+
+      console.log('Transaction sent:', signature)
+
+      // 4. Wait for confirmation
+      await connection.confirmTransaction(signature, 'confirmed')
+
+      console.log('Transaction confirmed')
+
+      // 5. Call matching engine with signature
       const result = await api.placeOrder({
         market_id: selectedMarket.id,
         side,
         price: priceUnits,
         size: sizeUnits,
         wallet: publicKey.toBase58(),
-        signature: '',
+        signature,
+        order_id: orderId.toString() // Pass the generated order ID
       })
 
       setPrice('')
       setSize('')
       console.log('Order placed:', result)
     } catch (err) {
+      console.error('Order placement failed:', err)
       setError(err instanceof Error ? err.message : 'Failed to place order')
     } finally {
       setIsSubmitting(false)
     }
-  }, [connected, publicKey, selectedMarket, price, size, side])
+  }, [connected, publicKey, selectedMarket, price, size, side, connection, sendTransaction])
 
   return (
     <div className="bg-card rounded-2xl border border-white/5 p-5">
@@ -187,8 +231,8 @@ export const OrderForm: FC<OrderFormProps> = ({ initialPrice }) => {
           {isSubmitting
             ? 'Placing Order...'
             : connected
-            ? `${side === 'buy' ? 'Buy' : 'Sell'} SOL`
-            : 'Connect Wallet'}
+              ? `${side === 'buy' ? 'Buy' : 'Sell'} SOL`
+              : 'Connect Wallet'}
         </Button>
       </div>
     </div>

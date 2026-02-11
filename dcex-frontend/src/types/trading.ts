@@ -17,7 +17,7 @@ export interface Market {
 
 export interface Order {
   id: number
-  order_id: number
+  order_id: string
   user_wallet: string
   market_id: string
   side: OrderSide
@@ -33,8 +33,8 @@ export interface Order {
 export interface Trade {
   id: number
   market_id: string
-  maker_order_id: number
-  taker_order_id: number
+  maker_order_id: string
+  taker_order_id: string
   maker_wallet: string
   taker_wallet: string
   price: number
@@ -73,6 +73,7 @@ export interface PlaceOrderRequest {
   size: number
   wallet: string
   signature: string
+  order_id?: string
 }
 
 export interface WsMessage {

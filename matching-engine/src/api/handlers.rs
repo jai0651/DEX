@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::error::{AppError, Result};
 use crate::types::{
     Market, Order, OrderSide, OrderStatus, OrderbookSnapshot, PlaceOrderRequest, Trade,
+    Deposit, Withdrawal, DepositRequest, WithdrawalRequest,
 };
 use crate::orderbook::{MatchingEngine, MatchResult};
 use crate::settlement::SettlementTask;
@@ -93,13 +94,6 @@ pub struct PlaceOrderResponse {
     pub trades: Vec<TradeInfo>,
 }
 
-#[derive(Serialize)]
-pub struct TradeInfo {
-    pub maker_order_id: i64,
-    pub price: i64,
-    pub size: i64,
-}
-
 pub async fn place_order(
     State(state): State<Arc<AppState>>,
     Json(req): Json<PlaceOrderRequest>,
@@ -126,11 +120,17 @@ pub async fn place_order(
         )));
     }
 
-    let order_id = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0);
+    // Use provided order_id or generate one if missing (though frontend should provide it)
+    let order_id = req.order_id.clone().unwrap_or_else(|| {
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0).to_string()
+    });
     
+    // TODO: Verify on-chain signature if needed
+    // For now we assume the signature provided is valid or verified elsewhere
+
     let order = db::create_order(
         &state.db_pool,
-        order_id,
+        &order_id,
         &req.wallet,
         req.market_id,
         req.side,
@@ -147,7 +147,7 @@ pub async fn place_order(
     for trade_match in &match_result.trades {
         db::update_order_status(
             &state.db_pool,
-            trade_match.maker_order_id,
+            &trade_match.maker_order_id,
             OrderStatus::PartiallyFilled,
             trade_match.size,
         ).await?;
@@ -162,7 +162,7 @@ pub async fn place_order(
             .map_err(|e| AppError::Internal(e))?;
 
         trade_infos.push(TradeInfo {
-            maker_order_id: trade_match.maker_order_id,
+            maker_order_id: trade_match.maker_order_id.clone(),
             price: trade_match.price,
             size: trade_match.size,
         });
@@ -175,7 +175,7 @@ pub async fn place_order(
         } else {
             OrderStatus::PartiallyFilled
         };
-        db::update_order_status(&state.db_pool, order_id, status, total_filled).await?
+        db::update_order_status(&state.db_pool, &order_id, status, total_filled).await?
     } else {
         orderbook.add_order(&order);
         order
@@ -193,11 +193,18 @@ pub async fn place_order(
     }))
 }
 
+#[derive(Serialize)]
+pub struct TradeInfo {
+    pub maker_order_id: String,
+    pub price: i64,
+    pub size: i64,
+}
+
 pub async fn cancel_order(
     State(state): State<Arc<AppState>>,
-    Path(order_id): Path<i64>,
+    Path(order_id): Path<String>,
 ) -> Result<Json<Order>> {
-    let order = db::get_order(&state.db_pool, order_id)
+    let order = db::get_order(&state.db_pool, &order_id)
         .await?
         .ok_or(AppError::OrderNotFound)?;
 
@@ -207,14 +214,14 @@ pub async fn cancel_order(
 
     let updated_order = db::update_order_status(
         &state.db_pool,
-        order_id,
+        &order_id,
         OrderStatus::Cancelled,
         order.filled,
     ).await?;
 
     let mut orderbook_manager = state.orderbook_manager.write().await;
     if let Some(orderbook) = orderbook_manager.get_mut(&order.market_id) {
-        orderbook.remove_order(order_id);
+        orderbook.remove_order(&order_id);
         
         let snapshot = orderbook.snapshot(20);
         drop(orderbook_manager);
@@ -229,9 +236,9 @@ pub async fn cancel_order(
 
 pub async fn get_order(
     State(state): State<Arc<AppState>>,
-    Path(order_id): Path<i64>,
+    Path(order_id): Path<String>,
 ) -> Result<Json<Order>> {
-    let order = db::get_order(&state.db_pool, order_id)
+    let order = db::get_order(&state.db_pool, &order_id)
         .await?
         .ok_or(AppError::OrderNotFound)?;
     Ok(Json(order))
@@ -249,4 +256,88 @@ pub async fn get_user_orders(
 ) -> Result<Json<Vec<Order>>> {
     let orders = db::get_user_orders(&state.db_pool, &wallet, query.market_id).await?;
     Ok(Json(orders))
+}
+
+pub async fn record_deposit(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<DepositRequest>,
+) -> Result<Json<Deposit>> {
+    let market = db::get_market(&state.db_pool, req.market_id)
+        .await?
+        .ok_or(AppError::MarketNotFound)?;
+
+    if !market.is_active {
+        return Err(AppError::InvalidOrder("Market is not active".to_string()));
+    }
+
+    if req.amount <= 0 {
+        return Err(AppError::InvalidOrder("Amount must be positive".to_string()));
+    }
+
+    let deposit = db::create_deposit(
+        &state.db_pool,
+        &req.wallet,
+        req.market_id,
+        req.amount,
+        req.is_base,
+        &req.signature,
+    ).await?;
+
+    Ok(Json(deposit))
+}
+
+pub async fn record_withdrawal(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<WithdrawalRequest>,
+) -> Result<Json<Withdrawal>> {
+    let market = db::get_market(&state.db_pool, req.market_id)
+        .await?
+        .ok_or(AppError::MarketNotFound)?;
+
+    if !market.is_active {
+        return Err(AppError::InvalidOrder("Market is not active".to_string()));
+    }
+
+    if req.amount <= 0 {
+        return Err(AppError::InvalidOrder("Amount must be positive".to_string()));
+    }
+
+    let withdrawal = db::create_withdrawal(
+        &state.db_pool,
+        &req.wallet,
+        req.market_id,
+        req.amount,
+        req.is_base,
+        &req.signature,
+    ).await?;
+
+    Ok(Json(withdrawal))
+}
+
+#[derive(Deserialize)]
+pub struct UserDepositsQuery {
+    pub market_id: Option<Uuid>,
+}
+
+pub async fn get_user_deposits(
+    State(state): State<Arc<AppState>>,
+    Path(wallet): Path<String>,
+    Query(query): Query<UserDepositsQuery>,
+) -> Result<Json<Vec<Deposit>>> {
+    let deposits = db::get_user_deposits(&state.db_pool, &wallet, query.market_id).await?;
+    Ok(Json(deposits))
+}
+
+#[derive(Deserialize)]
+pub struct UserWithdrawalsQuery {
+    pub market_id: Option<Uuid>,
+}
+
+pub async fn get_user_withdrawals(
+    State(state): State<Arc<AppState>>,
+    Path(wallet): Path<String>,
+    Query(query): Query<UserWithdrawalsQuery>,
+) -> Result<Json<Vec<Withdrawal>>> {
+    let withdrawals = db::get_user_withdrawals(&state.db_pool, &wallet, query.market_id).await?;
+    Ok(Json(withdrawals))
 }

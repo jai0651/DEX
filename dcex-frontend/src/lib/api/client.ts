@@ -30,7 +30,7 @@ export const api = {
     fetchApi<Trade[]>(`/api/markets/${marketId}/trades?limit=${limit}`),
 
   placeOrder: (order: PlaceOrderRequest) =>
-    fetchApi<{ order: Order; trades: Array<{ maker_order_id: number; price: number; size: number }> }>(
+    fetchApi<{ order: Order; trades: Array<{ maker_order_id: string; price: number; size: number }> }>(
       '/api/orders',
       {
         method: 'POST',
@@ -38,10 +38,10 @@ export const api = {
       }
     ),
 
-  cancelOrder: (orderId: number) =>
+  cancelOrder: (orderId: string) =>
     fetchApi<Order>(`/api/orders/${orderId}`, { method: 'DELETE' }),
 
-  getOrder: (orderId: number) => fetchApi<Order>(`/api/orders/${orderId}`),
+  getOrder: (orderId: string) => fetchApi<Order>(`/api/orders/${orderId}`),
 
   getUserOrders: (wallet: string, marketId?: string) => {
     const params = marketId ? `?market_id=${marketId}` : ''

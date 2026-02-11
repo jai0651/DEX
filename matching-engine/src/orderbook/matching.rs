@@ -13,9 +13,9 @@ pub struct MatchResult {
 
 #[derive(Debug, Clone)]
 pub struct TradeMatch {
-    pub maker_order_id: i64,
+    pub maker_order_id: String,
     pub maker_wallet: String,
-    pub taker_order_id: i64,
+    pub taker_order_id: String,
     pub taker_wallet: String,
     pub price: i64,
     pub size: i64,
@@ -72,9 +72,9 @@ impl MatchingEngine {
                 let fill_size = (*remaining).min(maker_order.remaining());
                 
                 trades.push(TradeMatch {
-                    maker_order_id: maker_order.order_id,
+                    maker_order_id: maker_order.order_id.clone(),
                     maker_wallet: maker_order.user_wallet.clone(),
-                    taker_order_id: incoming.order_id,
+                    taker_order_id: incoming.order_id.clone(),
                     taker_wallet: incoming.user_wallet.clone(),
                     price: *price,
                     size: fill_size,
@@ -130,9 +130,9 @@ impl MatchingEngine {
                 let fill_size = (*remaining).min(maker_order.remaining());
                 
                 trades.push(TradeMatch {
-                    maker_order_id: maker_order.order_id,
+                    maker_order_id: maker_order.order_id.clone(),
                     maker_wallet: maker_order.user_wallet.clone(),
-                    taker_order_id: incoming.order_id,
+                    taker_order_id: incoming.order_id.clone(),
                     taker_wallet: incoming.user_wallet.clone(),
                     price: *price,
                     size: fill_size,
@@ -171,15 +171,15 @@ mod tests {
     use super::*;
 
     fn create_test_order(
-        order_id: i64,
+        order_id: &str,
         wallet: &str,
         side: OrderSide,
         price: i64,
         size: i64,
     ) -> Order {
         Order {
-            id: order_id,
-            order_id,
+            id: 1,
+            order_id: order_id.to_string(),
             user_wallet: wallet.to_string(),
             market_id: Uuid::new_v4(),
             side,
@@ -198,10 +198,10 @@ mod tests {
         let market_id = Uuid::new_v4();
         let mut orderbook = Orderbook::new(market_id);
 
-        let sell_order = create_test_order(1, "seller", OrderSide::Sell, 100, 10);
+        let sell_order = create_test_order("1", "seller", OrderSide::Sell, 100, 10);
         orderbook.add_order(&sell_order);
 
-        let buy_order = create_test_order(2, "buyer", OrderSide::Buy, 100, 5);
+        let buy_order = create_test_order("2", "buyer", OrderSide::Buy, 100, 5);
         let result = MatchingEngine::match_order(&mut orderbook, &buy_order);
 
         assert_eq!(result.trades.len(), 1);
@@ -214,10 +214,10 @@ mod tests {
         let market_id = Uuid::new_v4();
         let mut orderbook = Orderbook::new(market_id);
 
-        let sell_order = create_test_order(1, "seller", OrderSide::Sell, 100, 5);
+        let sell_order = create_test_order("1", "seller", OrderSide::Sell, 100, 5);
         orderbook.add_order(&sell_order);
 
-        let buy_order = create_test_order(2, "buyer", OrderSide::Buy, 100, 10);
+        let buy_order = create_test_order("2", "buyer", OrderSide::Buy, 100, 10);
         let result = MatchingEngine::match_order(&mut orderbook, &buy_order);
 
         assert_eq!(result.trades.len(), 1);
@@ -230,10 +230,10 @@ mod tests {
         let market_id = Uuid::new_v4();
         let mut orderbook = Orderbook::new(market_id);
 
-        let sell_order = create_test_order(1, "seller", OrderSide::Sell, 110, 10);
+        let sell_order = create_test_order("1", "seller", OrderSide::Sell, 110, 10);
         orderbook.add_order(&sell_order);
 
-        let buy_order = create_test_order(2, "buyer", OrderSide::Buy, 100, 5);
+        let buy_order = create_test_order("2", "buyer", OrderSide::Buy, 100, 5);
         let result = MatchingEngine::match_order(&mut orderbook, &buy_order);
 
         assert_eq!(result.trades.len(), 0);

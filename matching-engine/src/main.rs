@@ -52,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
     let settlement_queue = Arc::new(SettlementQueue::new(
         db_pool.clone(),
         config.solana_rpc_url.clone(),
+        config.program_id.clone(),
     ));
 
     let state = Arc::new(AppState {

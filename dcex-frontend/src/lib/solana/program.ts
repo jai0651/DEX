@@ -89,7 +89,7 @@ export class DcexClient {
     isBase: boolean
   ) {
     const [userVaultPDA] = getUserVaultPDA(user, market)
-    
+
     return {
       programId: this.programId,
       keys: [
@@ -118,7 +118,7 @@ export class DcexClient {
     isBase: boolean
   ) {
     const [userVaultPDA] = getUserVaultPDA(user, market)
-    
+
     return {
       programId: this.programId,
       keys: [
@@ -134,6 +134,53 @@ export class DcexClient {
         amount.toArrayLike(Buffer, 'le', 8),
         Buffer.from([isBase ? 1 : 0]),
       ]),
+    }
+  }
+
+  getPlaceOrderInstruction(
+    user: PublicKey,
+    market: PublicKey,
+    userVault: PublicKey,
+    order: PublicKey,
+    orderId: BN,
+    side: 'buy' | 'sell',
+    price: BN,
+    size: BN
+  ) {
+    return {
+      programId: this.programId,
+      keys: [
+        { pubkey: user, isSigner: true, isWritable: true },
+        { pubkey: market, isSigner: false, isWritable: false },
+        { pubkey: userVault, isSigner: false, isWritable: true },
+        { pubkey: order, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.concat([
+        Buffer.from([3]), // Instruction index for PlaceOrder
+        orderId.toArrayLike(Buffer, 'le', 16),
+        Buffer.from([side === 'buy' ? 0 : 1]),
+        price.toArrayLike(Buffer, 'le', 8),
+        size.toArrayLike(Buffer, 'le', 8),
+      ]),
+    }
+  }
+
+  getCancelOrderInstruction(
+    user: PublicKey,
+    market: PublicKey,
+    userVault: PublicKey,
+    order: PublicKey
+  ) {
+    return {
+      programId: this.programId,
+      keys: [
+        { pubkey: user, isSigner: true, isWritable: true },
+        { pubkey: market, isSigner: false, isWritable: false },
+        { pubkey: userVault, isSigner: false, isWritable: true },
+        { pubkey: order, isSigner: false, isWritable: true },
+      ],
+      data: Buffer.from([4]), // Instruction index for CancelOrder
     }
   }
 }

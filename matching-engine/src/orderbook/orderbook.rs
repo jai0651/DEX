@@ -7,7 +7,7 @@ use crate::types::{Order, OrderSide, OrderbookLevel, OrderbookSnapshot};
 
 #[derive(Debug, Clone)]
 pub struct OrderEntry {
-    pub order_id: i64,
+    pub order_id: String,
     pub user_wallet: String,
     pub size: i64,
     pub filled: i64,
@@ -24,7 +24,7 @@ pub struct Orderbook {
     pub market_id: Uuid,
     pub bids: BTreeMap<Reverse<i64>, Vec<OrderEntry>>,
     pub asks: BTreeMap<i64, Vec<OrderEntry>>,
-    pub order_locations: HashMap<i64, (OrderSide, i64)>,
+    pub order_locations: HashMap<String, (OrderSide, i64)>,
     pub last_price: Option<i64>,
 }
 
@@ -41,7 +41,7 @@ impl Orderbook {
 
     pub fn add_order(&mut self, order: &Order) {
         let entry = OrderEntry {
-            order_id: order.order_id,
+            order_id: order.order_id.clone(),
             user_wallet: order.user_wallet.clone(),
             size: order.size,
             filled: order.filled,
@@ -54,20 +54,20 @@ impl Orderbook {
                     .entry(Reverse(order.price))
                     .or_insert_with(Vec::new)
                     .push(entry);
-                self.order_locations.insert(order.order_id, (OrderSide::Buy, order.price));
+                self.order_locations.insert(order.order_id.clone(), (OrderSide::Buy, order.price));
             }
             OrderSide::Sell => {
                 self.asks
                     .entry(order.price)
                     .or_insert_with(Vec::new)
                     .push(entry);
-                self.order_locations.insert(order.order_id, (OrderSide::Sell, order.price));
+                self.order_locations.insert(order.order_id.clone(), (OrderSide::Sell, order.price));
             }
         }
     }
 
-    pub fn remove_order(&mut self, order_id: i64) -> Option<OrderEntry> {
-        if let Some((side, price)) = self.order_locations.remove(&order_id) {
+    pub fn remove_order(&mut self, order_id: &str) -> Option<OrderEntry> {
+        if let Some((side, price)) = self.order_locations.remove(order_id) {
             match side {
                 OrderSide::Buy => {
                     if let Some(orders) = self.bids.get_mut(&Reverse(price)) {
@@ -96,8 +96,8 @@ impl Orderbook {
         None
     }
 
-    pub fn update_order_fill(&mut self, order_id: i64, filled_amount: i64) {
-        if let Some((side, price)) = self.order_locations.get(&order_id) {
+    pub fn update_order_fill(&mut self, order_id: &str, filled_amount: i64) {
+        if let Some((side, price)) = self.order_locations.get(order_id) {
             match side {
                 OrderSide::Buy => {
                     if let Some(orders) = self.bids.get_mut(&Reverse(*price)) {

@@ -1,26 +1,50 @@
 'use client'
 
 import { FC, useState } from 'react'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { useConnection, useWallet } from '@solana/wallet-adapter-react'
+import { PublicKey } from '@solana/web3.js'
+import { BN } from '@coral-xyz/anchor'
 import { useTradingStore } from '@/lib/stores/trading'
 import { api } from '@/lib/api/client'
 import { Button } from '@/components/ui/button'
 import { formatPrice, formatSize, formatTimestamp, cn } from '@/lib/utils'
 import { X, FileText, Wallet } from 'lucide-react'
+import { createCancelOrderTransaction } from '@/lib/solana/orders'
 
 export const OpenOrders: FC = () => {
-  const { publicKey } = useWallet()
+  const { connection } = useConnection()
+  const { publicKey, sendTransaction } = useWallet()
   const openOrders = useTradingStore((state) => state.openOrders)
   const setOpenOrders = useTradingStore((state) => state.setOpenOrders)
-  const [cancellingId, setCancellingId] = useState<number | null>(null)
+  const selectedMarket = useTradingStore((state) => state.selectedMarket)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
 
   const activeOrders = openOrders.filter(
     (o) => o.status === 'pending' || o.status === 'partiallyfilled'
   )
 
-  const handleCancel = async (orderId: number) => {
+  const handleCancel = async (orderId: string) => {
+    if (!publicKey || !selectedMarket) return
+
     setCancellingId(orderId)
     try {
+      // 1. Create on-chain cancel transaction
+      const baseMint = new PublicKey(selectedMarket.base_mint)
+      const quoteMint = new PublicKey(selectedMarket.quote_mint)
+
+      const tx = await createCancelOrderTransaction(
+        connection,
+        publicKey,
+        baseMint,
+        quoteMint,
+        new BN(orderId)
+      )
+
+      // 2. Sign and send
+      const signature = await sendTransaction(tx, connection)
+      await connection.confirmTransaction(signature, 'confirmed')
+
+      // 3. Call matching engine to remove from orderbook
       await api.cancelOrder(orderId)
       setOpenOrders(openOrders.filter((o) => o.order_id !== orderId))
     } catch (err) {
@@ -82,8 +106,8 @@ export const OpenOrders: FC = () => {
             </thead>
             <tbody>
               {activeOrders.map((order) => (
-                <tr 
-                  key={order.order_id} 
+                <tr
+                  key={order.order_id}
                   className="hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
                 >
                   <td className="px-4 py-3">
@@ -107,7 +131,7 @@ export const OpenOrders: FC = () => {
                   <td className="text-right px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className={cn(
                             'h-full rounded-full transition-all',
                             order.side === 'buy' ? 'bg-buy' : 'bg-sell'

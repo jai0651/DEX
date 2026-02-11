@@ -1,8 +1,8 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::error::Result;
-use crate::types::{Market, Order, OrderSide, OrderStatus, Trade};
+use crate::error::{AppError, Result};
+use crate::types::{Market, Order, OrderSide, OrderStatus, Trade, Deposit, Withdrawal};
 
 pub async fn get_market(pool: &PgPool, market_id: Uuid) -> Result<Option<Market>> {
     let market = sqlx::query_as!(
@@ -44,7 +44,7 @@ pub async fn get_active_markets(pool: &PgPool) -> Result<Vec<Market>> {
 
 pub async fn create_order(
     pool: &PgPool,
-    order_id: i64,
+    order_id: &str,
     user_wallet: &str,
     market_id: Uuid,
     side: OrderSide,
@@ -80,7 +80,7 @@ pub async fn create_order(
     Ok(order)
 }
 
-pub async fn get_order(pool: &PgPool, order_id: i64) -> Result<Option<Order>> {
+pub async fn get_order(pool: &PgPool, order_id: &str) -> Result<Option<Order>> {
     let order = sqlx::query_as!(
         Order,
         r#"
@@ -102,7 +102,7 @@ pub async fn get_order(pool: &PgPool, order_id: i64) -> Result<Option<Order>> {
 
 pub async fn update_order_status(
     pool: &PgPool,
-    order_id: i64,
+    order_id: &str,
     status: OrderStatus,
     filled: i64,
 ) -> Result<Order> {
@@ -185,8 +185,8 @@ pub async fn get_user_orders(
 pub async fn create_trade(
     pool: &PgPool,
     market_id: Uuid,
-    maker_order_id: i64,
-    taker_order_id: i64,
+    maker_order_id: &str,
+    taker_order_id: &str,
     maker_wallet: &str,
     taker_wallet: &str,
     price: i64,
@@ -248,4 +248,171 @@ pub async fn get_recent_trades(
     .await?;
     
     Ok(trades)
+}
+
+pub async fn create_deposit(
+    pool: &PgPool,
+    user_wallet: &str,
+    market_id: Uuid,
+    amount: i64,
+    is_base: bool,
+    signature: &str,
+) -> Result<Deposit> {
+    let deposit = sqlx::query_as!(
+        Deposit,
+        r#"
+        INSERT INTO deposits (user_wallet, market_id, amount, is_base, signature)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING 
+            id, user_wallet, market_id, amount, is_base, signature, created_at
+        "#,
+        user_wallet,
+        market_id,
+        amount,
+        is_base,
+        signature
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| {
+        if e.to_string().contains("duplicate") || e.to_string().contains("unique") {
+            AppError::InvalidOrder("Deposit with this signature already exists".to_string())
+        } else {
+            AppError::Database(e)
+        }
+    })?;
+    
+    Ok(deposit)
+}
+
+pub async fn create_withdrawal(
+    pool: &PgPool,
+    user_wallet: &str,
+    market_id: Uuid,
+    amount: i64,
+    is_base: bool,
+    signature: &str,
+) -> Result<Withdrawal> {
+    let withdrawal = sqlx::query_as!(
+        Withdrawal,
+        r#"
+        INSERT INTO withdrawals (user_wallet, market_id, amount, is_base, signature)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING 
+            id, user_wallet, market_id, amount, is_base, signature, created_at
+        "#,
+        user_wallet,
+        market_id,
+        amount,
+        is_base,
+        signature
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| {
+        if e.to_string().contains("duplicate") || e.to_string().contains("unique") {
+            AppError::InvalidOrder("Withdrawal with this signature already exists".to_string())
+        } else {
+            AppError::Database(e)
+        }
+    })?;
+    
+    Ok(withdrawal)
+}
+
+pub async fn get_user_deposits(
+    pool: &PgPool,
+    user_wallet: &str,
+    market_id: Option<Uuid>,
+) -> Result<Vec<Deposit>> {
+    let deposits = if let Some(mid) = market_id {
+        sqlx::query_as!(
+            Deposit,
+            r#"
+            SELECT 
+                id, user_wallet, market_id, amount, is_base, signature, created_at
+            FROM deposits
+            WHERE user_wallet = $1 AND market_id = $2
+            ORDER BY created_at DESC
+            LIMIT 100
+            "#,
+            user_wallet,
+            mid
+        )
+        .fetch_all(pool)
+        .await?
+    } else {
+        sqlx::query_as!(
+            Deposit,
+            r#"
+            SELECT 
+                id, user_wallet, market_id, amount, is_base, signature, created_at
+            FROM deposits
+            WHERE user_wallet = $1
+            ORDER BY created_at DESC
+            LIMIT 100
+            "#,
+            user_wallet
+        )
+        .fetch_all(pool)
+        .await?
+    };
+    
+    Ok(deposits)
+}
+
+pub async fn get_user_withdrawals(
+    pool: &PgPool,
+    user_wallet: &str,
+    market_id: Option<Uuid>,
+) -> Result<Vec<Withdrawal>> {
+    let withdrawals = if let Some(mid) = market_id {
+        sqlx::query_as!(
+            Withdrawal,
+            r#"
+            SELECT 
+                id, user_wallet, market_id, amount, is_base, signature, created_at
+            FROM withdrawals
+            WHERE user_wallet = $1 AND market_id = $2
+            ORDER BY created_at DESC
+            LIMIT 100
+            "#,
+            user_wallet,
+            mid
+        )
+        .fetch_all(pool)
+        .await?
+    } else {
+        sqlx::query_as!(
+            Withdrawal,
+            r#"
+            SELECT 
+                id, user_wallet, market_id, amount, is_base, signature, created_at
+            FROM withdrawals
+            WHERE user_wallet = $1
+            ORDER BY created_at DESC
+            LIMIT 100
+            "#,
+            user_wallet
+        )
+        .fetch_all(pool)
+        .await?
+    };
+    
+    Ok(withdrawals)
+}
+pub async fn update_trade_signature(
+    pool: &PgPool,
+    trade_id: i64,
+    signature: &str,
+) -> Result<()> {
+    sqlx::query!(
+        "UPDATE trades SET settlement_signature = $1 WHERE id = $2",
+        signature,
+        trade_id
+    )
+    .execute(pool)
+    .await?;
+    
+    Ok(())
 }

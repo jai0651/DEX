@@ -1,6 +1,6 @@
 CREATE TABLE orders (
     id BIGSERIAL PRIMARY KEY,
-    order_id BIGINT UNIQUE NOT NULL,
+    order_id VARCHAR(64) UNIQUE NOT NULL,
     user_wallet VARCHAR(44) NOT NULL,
     market_id UUID NOT NULL REFERENCES markets(id),
     side VARCHAR(4) NOT NULL CHECK (side IN ('buy', 'sell')),

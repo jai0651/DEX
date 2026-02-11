@@ -1,8 +1,8 @@
 CREATE TABLE trades (
     id BIGSERIAL PRIMARY KEY,
     market_id UUID NOT NULL REFERENCES markets(id),
-    maker_order_id BIGINT NOT NULL,
-    taker_order_id BIGINT NOT NULL,
+    maker_order_id VARCHAR(64) NOT NULL,
+    taker_order_id VARCHAR(64) NOT NULL,
     maker_wallet VARCHAR(44) NOT NULL,
     taker_wallet VARCHAR(44) NOT NULL,
     price BIGINT NOT NULL,
